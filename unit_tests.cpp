@@ -16,15 +16,27 @@ void printMatrix(int dimension, int* matrix_ptr){
 
 int main(){
     // Test reading from input file
-    Matrix M(3, 1);
-    auto res = M.read_input("input1small.txt");
-    if (res.first == NULL){
+    printf("Small input test--------------------\n");
+    Matrix M1(3, 1);
+    auto res1 = M1.read_input("input1small.txt");
+    if (res1.first == NULL){
         printf("Error with reading.\n");
     }
     printf("A matrix from small input file:--------\n");
-    printMatrix(M.n, M.A);
+    printMatrix(M1.n, M1.A);
     printf("B matrix from small input file:--------\n");
-    printMatrix(M.n, M.B);
+    printMatrix(M1.n, M1.B);
     printf("the end\n");
+    
+    printf("Big input test--------------------\n");
+    Matrix M2(22, 1);
+    auto res2 = M2.read_input("input1big.txt");
+    if (res2.first == NULL){
+        printf("Error with reading.\n");
+    }
+    printf("A matrix from small input file:--------\n");
+    printMatrix(M2.n, M2.A);
+    printf("B matrix from small input file:--------\n");
+    printMatrix(M2.n, M2.B);
 };
 

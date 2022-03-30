@@ -55,63 +55,21 @@ struct Matrix {
     int size = Matrix::n * Matrix::n;
     int* A = new int[size]; int* B = new int[size];
 
-    printf("test\n");
-    printf("%d\n", total_size);
-    for (int i = 0; i < total_size; i = i + 2){
-        //printf("%d\n", elbuf[i]);
-        printf("%ld\n", strtol(&elbuf[i], NULL, 10));
-    }
-
-    printf("-----------------\n");
-
     int buf_counter = 0; // tracking postion in the buffer
     for (int r = 0; r < 2*Matrix::n; r++){
         for (int c = r*Matrix::n; c < (r+1)*Matrix::n; c++){
             if (buf_counter < total_size/2){ // check if we are at end of first matrix
-                //printf("%c\t", elbuf[buf_counter]);
-                printf("%ld\n", strtol(&elbuf[buf_counter], NULL, 10));
                 A[c] = strtol(&elbuf[buf_counter], NULL, 10);
             } else {
-                //printf("%c\t", elbuf[buf_counter]);
-                printf("%ld\n", strtol(&elbuf[buf_counter], NULL, 10));
                 B[c - size] = strtol(&elbuf[buf_counter], NULL, 10);
             }
             buf_counter = buf_counter + 2;
         }
     }
 
-    // check matrices -- debugging purposes
-    printf("Printing matrix A from inside.\n");
-    for (int i = 0; i < Matrix::n; i++){
-        for (int j = i*Matrix::n; j < (i+1)*Matrix::n; j++){
-            printf("%d\n", A[j]);
-        }
-    }
-    printf("Printing matrix B from inside.\n");
-    for (int i = 0; i < Matrix::n; i++){
-        for (int j = i*Matrix::n; j < (i+1)*Matrix::n; j++){
-            printf("%d\n", B[j]);
-        }
-    }
-
     Matrix::A = A; Matrix::B = B;
     return std::pair<int*, int*>(A, B);
    }
-
-    // OLD UNNsECESSARY STUFF
-    //    // add padding if necessary
-    //    int dimsize = Matrix::n;
-    //    if (Matrix::n % 2 != 0){ // if odd, add padding
-    //        dimsize++;
-    //    }
-    //    // fill the elements of the matrix in row-major order
-    //    std::vector<int> rowvec;
-    //    for (auto row = 0; row < dimsize; row = row + dimsize){
-    //        for (auto col = row; col < row + dimsize; col++) {
-    //            rowvec.push_back(elbuf[col]);
-    //        }
-    //     Matrix::elements.push_back(rowvec);
-    //     rowvec.clear();
 
     /* 
         stand_mult
