@@ -1,4 +1,7 @@
 #include "strassen.cpp"
+#include <chrono>
+
+using namespace std::chrono;
 
 /*
     Print matrix function:
@@ -38,5 +41,43 @@ int main(){
     printMatrix(M2.n, M2.A);
     printf("B matrix from small input file:--------\n");
     printMatrix(M2.n, M2.B);
+
+    // test regular matrix multiplication
+    printf("Tiny matrix result:--------------------\n");
+    Matrix M3(2, 1);
+    auto res3 = M3.read_input("input1tiny.txt");
+    int* C = M3.standard_mult(M3.n, std::pair<int,int>(0,0), std::pair<int,int>(0,0));
+    for (int r = 0; r < M3.n; r++){
+        for (int c = r*M3.n; c < (r+1)*M3.n; c++){
+            printf("%d\t", C[c]);
+        }
+        printf("\n");
+    }
+    printf("Medium matrix result:--------------------\n");
+    Matrix M5(3, 1);
+    auto res5 = M5.read_input("input1small.txt");
+    int* C3 = M5.standard_mult(M5.n, std::pair<int,int>(0,0), std::pair<int,int>(0,0));
+    for (int r = 0; r < M5.n; r++){
+        for (int c = r*M5.n; c < (r+1)*M5.n; c++){
+            printf("%d\t", C3[c]);
+        }
+        printf("\n");
+    }
+
+    // test timing of large regular matrix multiplication
+    printf("Big matrix result:--------------------\n");
+    Matrix M4(22, 1);
+    auto res4 = M4.read_input("input1big.txt");
+    auto start = high_resolution_clock::now();
+    int* C2 = M4.standard_mult(M4.n, std::pair<int,int>(0,0), std::pair<int,int>(0,0));
+    auto stop = high_resolution_clock::now();
+    for (int r = 0; r < M4.n; r++){
+        for (int c = r*M4.n; c < (r+1)*M4.n; c++){
+            printf("%d\t", C2[c]);
+        }
+        printf("\n");
+    }
+    auto duration = duration_cast<seconds>(stop - start);
+    printf("Total mult time in seconds: %ld\n", duration.count());
 };
 

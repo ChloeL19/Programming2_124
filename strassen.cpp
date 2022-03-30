@@ -17,6 +17,7 @@ struct Matrix {
         Matrix::n = dimension; Matrix::cop = crossover;
     }
     ~Matrix() = default;
+    // do I need to delete the matrices??
 
     /*
         read_input
@@ -74,7 +75,33 @@ struct Matrix {
     /* 
         stand_mult
         Standard multiplication algorithm.
+        Takes as argument starting pointers to the inside of A and B
+        Returns pointer to the product matrix.
+
+        idea: could pass integers only as arguments instead of pointers
+        treat these as coordinates for upper left corner of sub-matrix of A
+            and upper-left corner of sub-matrix of B
+        works because these matrice are equal squares
     */
+   int* standard_mult(int dim, std::pair<int, int> acoord, std::pair<int, int> bcoord){
+       // multiply each column in B by every row in A
+       // trying to optimize because caches dredge up entire row
+       int* C = new int[dim*dim]; // OPT Q: can I avoid making a ton of these new matrices??
+       for (int j = 0; j < dim; j++){ // column in B
+            for (int i = 0; i < dim; i++){ // row of A
+               // reset C's column element sum to zero
+               int partial_sum = 0;
+               for (int k = 0; k < dim; k++){ // element of column in B, element of row of A
+                  partial_sum = partial_sum + A[(i+acoord.first)*dim + (k + acoord.second)]
+                    * B[(k + bcoord.first)*dim + (j + bcoord.second)];
+               }
+               // fill in element of C's column
+               C[i*dim + j] = partial_sum;
+           }
+       }
+
+       return C;
+   }
 
 
     /*
