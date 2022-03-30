@@ -88,7 +88,7 @@ struct Matrix {
             and upper-left corner of sub-matrix of B
         works because these matrice are equal squares
     */
-   int* standard_mult(int dim, bool pad, std::pair<int, int> acoord, 
+   int* standard_mult(int dim, bool pad, int* A, int* B, std::pair<int, int> acoord, 
                         std::pair<int, int> bcoord,
                         std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
        // multiply each column in B by every row in A
@@ -126,6 +126,25 @@ struct Matrix {
        return Matrix::C;
    }
 
+   /*
+    Subtract or add two submatrices of a larger matrix.
+    Return pointer to resulting matrix.
+   */
+    int* subtract(int dim, int sign, int* A, int* B, std::pair<int,int> acoord, std::pair<int,int> bcoord){
+        int* res = new int[dim*dim];
+        for (int r = 0; r < dim; r++){
+            for (int c = r*dim; c < (r+1)*dim; c++){
+                if (sign < 0){
+                    res[c] = Matrix::A[(r+acoord.first)*dim + (c+acoord.second)]
+                        - Matrix::B[(r+bcoord.first)*dim + (c+bcoord.second)];
+                } else {
+                    res[c] = Matrix::A[(r+acoord.first)*dim + (c+acoord.second)]
+                        + Matrix::B[(r+bcoord.first)*dim + (c+bcoord.second)];
+                } 
+            }
+        }
+        return res;
+    }
 
     /*
         strass_mult
@@ -139,7 +158,7 @@ struct Matrix {
             - coordinates of upper-left submatrix of B (if 0,0 means entire matrix B)
             - coordinates of where output should be deposited in C (0,0 means blanket entire C)
     */
-   int* strassens_w_crossover(int dim, bool pad, std::pair<int,int> acoord, 
+   int* strassens_w_crossover(int dim, bool pad, int* Aptr, int* Bptr, std::pair<int,int> acoord, 
                                 std::pair<int,int> bcoord,
                                 std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
         // messy base case
@@ -150,7 +169,7 @@ struct Matrix {
         //     Matrix::C[(acoord.first + 1)*dim + bcoord.second + 1] = 
         // }
         if (dim == 2 || dim <= Matrix::cop){ // invoke normal multiplication, this is "base case"
-            return Matrix::standard_mult(dim, pad, acoord, bcoord, ccoord_vec);
+            return Matrix::standard_mult(dim, pad, Aptr, Bptr, acoord, bcoord, ccoord_vec);
         } else {
             if (dim % 2 != 0){
                 // need to add padding
@@ -158,7 +177,40 @@ struct Matrix {
                 pad = true;
             }
             // do strassen multiplications
+            // define coordinate for each sub-matrix
 
+            //Aptr
+            std::pair<int,int> A = std::pair<int,int>(acoord.first, acoord.second);
+            std::pair<int,int> B = std::pair<int,int>(acoord.first, acoord.second + dim/2);
+            std::pair<int,int> C = std::pair<int,int>(acoord.first + dim/2, acoord.second);
+            std::pair<int,int> D = std::pair<int,int>(acoord.first + dim/2, acoord.second + dim/2);
+            //Bptr
+            std::pair<int,int> E = std::pair<int,int>(bcoord.first, bcoord.second);
+            std::pair<int,int> F = std::pair<int,int>(bcoord.first, bcoord.second + dim/2);
+            std::pair<int,int> G = std::pair<int,int>(bcoord.first + dim/2, bcoord.second);
+            std::pair<int,int> H = std::pair<int,int>(bcoord.first + dim/2, bcoord.second + dim/2);
+            
+            std::pair<int,int> wholeMat = std::pair<int,int>(0,0);
+            // delete all unnecessary storage matrices that are additive compounds of A/B
+            // p1
+            auto f_min_h = Matrix::subtract(dim, -1, Aptr, Bptr, F, H);
+            std::vector<std::pair<int, std::pair<int,int>>> p1_coords;
+            p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, B)); // confirm
+            p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
+            strassens_w_crossover(dim, pad, Aptr, f_min_h, A, wholeMat, p1_coords);
+            delete[] f_min_h;
+            // p2
+            auto a_plus_b = Matrix::subtract(dim, 1, Aptr, Bptr, A, B);
+            std::vector<std::pair<int, std::pair<int,int>>> p2_coords;
+            p2_coords.push_back(std::pair<int, std::pair<int,int>>(-1, A)); // confirm
+            p2_coords.push_back(std::pair<int, std::pair<int,int>>(1, B));
+            strassens_w_crossover(dim, pad, a_plus_b, Bptr, wholeMat, H, p2_coords);
+            delete[] a_plus_b;
+            // p3
+            // p4
+            // p5
+            // p6
+            // p7
             // invoke recursive step
         }
 
