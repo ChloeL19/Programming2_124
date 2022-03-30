@@ -13,6 +13,7 @@ struct Matrix {
                                             // each vector is a row
     int* A;
     int* B;
+    int* C;
     Matrix(int dimension, int crossover){
         Matrix::n = dimension; Matrix::cop = crossover;
     }
@@ -68,7 +69,7 @@ struct Matrix {
         }
     }
 
-    Matrix::A = A; Matrix::B = B;
+    Matrix::A = A; Matrix::B = B; Matrix::C = new int[size];
     return std::pair<int*, int*>(A, B);
    }
 
@@ -83,24 +84,30 @@ struct Matrix {
             and upper-left corner of sub-matrix of B
         works because these matrice are equal squares
     */
-   int* standard_mult(int dim, std::pair<int, int> acoord, std::pair<int, int> bcoord){
+   int* standard_mult(int dim, bool pad, std::pair<int, int> acoord, std::pair<int, int> bcoord){
        // multiply each column in B by every row in A
        // trying to optimize because caches dredge up entire row
-       int* C = new int[dim*dim]; // OPT Q: can I avoid making a ton of these new matrices??
+       //Matrix::C = new int[dim*dim]; // OPT Q: can I avoid making a ton of these new matrices??
        for (int j = 0; j < dim; j++){ // column in B
             for (int i = 0; i < dim; i++){ // row of A
                // reset C's column element sum to zero
                int partial_sum = 0;
                for (int k = 0; k < dim; k++){ // element of column in B, element of row of A
-                  partial_sum = partial_sum + A[(i+acoord.first)*dim + (k + acoord.second)]
-                    * B[(k + bcoord.first)*dim + (j + bcoord.second)];
+                  // handle padding here! "pretend" matrix has padding
+                  if (pad && (k == dim-1 || i == dim-1 || k == dim-1)){
+                      // do nothing to partial_sum, because we assume padding is zero
+                  } else { // no padding case
+                    partial_sum = partial_sum + A[(i+acoord.first)*dim + (k + acoord.second)]
+                        * B[(k + bcoord.first)*dim + (j + bcoord.second)];
+                  }
                }
                // fill in element of C's column
-               C[i*dim + j] = partial_sum;
+               Matrix::C[(i + acoord.first)*dim + 
+                (j + bcoord.second)] = partial_sum; // CONFIRM!
            }
        }
 
-       return C;
+       return Matrix::C;
    }
 
 
@@ -112,6 +119,7 @@ struct Matrix {
         Returns pointer to the modified product matrix.
         Handle padding in here.
     */
+
 
 
 };
