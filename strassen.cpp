@@ -70,6 +70,10 @@ struct Matrix {
     }
 
     Matrix::A = A; Matrix::B = B; Matrix::C = new int[size];
+    // initialize C matrix to zeros
+    for (int i = 0; i < size; i++){
+        Matrix:C[i] = 0;
+    }
     return std::pair<int*, int*>(A, B);
    }
 
@@ -84,7 +88,9 @@ struct Matrix {
             and upper-left corner of sub-matrix of B
         works because these matrice are equal squares
     */
-   int* standard_mult(int dim, bool pad, std::pair<int, int> acoord, std::pair<int, int> bcoord){
+   int* standard_mult(int dim, bool pad, std::pair<int, int> acoord, 
+                        std::pair<int, int> bcoord,
+                        std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
        // multiply each column in B by every row in A
        // trying to optimize because caches dredge up entire row
        //Matrix::C = new int[dim*dim]; // OPT Q: can I avoid making a ton of these new matrices??
@@ -102,8 +108,18 @@ struct Matrix {
                   }
                }
                // fill in element of C's column
-               Matrix::C[(i + acoord.first)*dim + 
-                (j + bcoord.second)] = partial_sum; // CONFIRM!
+               // and all relevant blotches of C
+               for (auto ccoord_wrap : ccoord_vec){
+                   auto ccoord = ccoord_wrap.second;
+                   if (ccoord_wrap.first == -1) {
+                        Matrix::C[(i + ccoord.first)*dim + 
+                        (j + ccoord.second)] -= partial_sum;
+                   } else {
+                        Matrix::C[(i + ccoord.first)*dim + 
+                        (j + ccoord.second)] += partial_sum;
+                   }
+
+               }
            }
        }
 
@@ -115,13 +131,39 @@ struct Matrix {
         strass_mult
         Strassen's algorithm with crossover.
         We consciously edit the matrices in-place for runtime and space purposes.
-        Takes a pointer to the factor matrices and a pointer to the product matrix.
-        Returns pointer to the modified product matrix.
-        Handle padding in here.
+        Handles padding without explicitly storing it (generates it on-demand)
+        Arguments:
+            - dimension size
+            - pad (boolean for whether or not this matrix should include padding)
+            - coordinates of upper-left submatrix of A (if 0,0 means entire matrix A)
+            - coordinates of upper-left submatrix of B (if 0,0 means entire matrix B)
+            - coordinates of where output should be deposited in C (0,0 means blanket entire C)
     */
+   int* strassens_w_crossover(int dim, bool pad, std::pair<int,int> acoord, 
+                                std::pair<int,int> bcoord,
+                                std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
+        // messy base case
+        // if (dim == 2){ // just dealing with a real number in each quadrant here
+        //     Matrix::C[acoord.first*dim + bcoord.second] = Matrix::A[acoord.]
+        //     Matrix::C[acoord.first*dim + bcoord.second + 1] = 
+        //     Matrix::C[(acoord.first + 1)*dim + bcoord.second] = 
+        //     Matrix::C[(acoord.first + 1)*dim + bcoord.second + 1] = 
+        // }
+        if (dim == 2 || dim <= Matrix::cop){ // invoke normal multiplication, this is "base case"
+            return Matrix::standard_mult(dim, pad, acoord, bcoord, ccoord_vec);
+        } else {
+            if (dim % 2 != 0){
+                // need to add padding
+                dim++;
+                pad = true;
+            }
+            // do strassen multiplications
 
+            // invoke recursive step
+        }
 
-
+        return Matrix::C;
+   }
 };
 
 /*

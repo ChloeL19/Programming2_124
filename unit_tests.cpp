@@ -46,7 +46,10 @@ int main(){
     printf("Tiny matrix result:--------------------\n");
     Matrix M3(2, 1);
     auto res3 = M3.read_input("input1tiny.txt");
-    int* C = M3.standard_mult(M3.n, false, std::pair<int,int>(0,0), std::pair<int,int>(0,0));
+    std::vector<std::pair<int, std::pair<int,int>>> ccoord;
+    ccoord.push_back(std::pair<int, std::pair<int,int>>(1,std::pair<int,int>(0,0)));
+    int* C = M3.standard_mult(M3.n, false, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
+            ccoord);
     for (int r = 0; r < M3.n; r++){
         for (int c = r*M3.n; c < (r+1)*M3.n; c++){
             printf("%d\t", C[c]);
@@ -56,7 +59,8 @@ int main(){
     printf("Medium matrix result:--------------------\n");
     Matrix M5(3, 1);
     auto res5 = M5.read_input("input1small.txt");
-    int* C3 = M5.standard_mult(M5.n, false, std::pair<int,int>(0,0), std::pair<int,int>(0,0));
+    int* C3 = M5.standard_mult(M5.n, false, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
+            ccoord);
     for (int r = 0; r < M5.n; r++){
         for (int c = r*M5.n; c < (r+1)*M5.n; c++){
             printf("%d\t", C3[c]);
@@ -69,7 +73,8 @@ int main(){
     Matrix M4(22, 1);
     auto res4 = M4.read_input("input1big.txt");
     auto start = high_resolution_clock::now();
-    int* C2 = M4.standard_mult(M4.n, false, std::pair<int,int>(0,0), std::pair<int,int>(0,0));
+    int* C2 = M4.standard_mult(M4.n, false, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
+            ccoord);
     auto stop = high_resolution_clock::now();
     for (int r = 0; r < M4.n; r++){
         for (int c = r*M4.n; c < (r+1)*M4.n; c++){
@@ -84,7 +89,8 @@ int main(){
     printf("Medium matrix result with padding:--------------------\n");
     Matrix M6(4, 1);
     auto res6 = M6.read_input("input1small_pad.txt");
-    int* C4 = M6.standard_mult(M6.n, false, std::pair<int,int>(0,0), std::pair<int,int>(0,0));
+    int* C4 = M6.standard_mult(M6.n, false, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
+        ccoord);
     for (int r = 0; r < M6.n; r++){
         for (int c = r*M6.n; c < (r+1)*M6.n; c++){
             printf("%d\t", C4[c]);
