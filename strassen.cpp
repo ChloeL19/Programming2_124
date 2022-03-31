@@ -14,6 +14,8 @@ struct Matrix {
     int* A;
     int* B;
     int* C;
+    int* scratch_pad; // a matrix we only allocate once for storing
+                    // intermediate results
     Matrix(int dimension, int crossover){
         Matrix::n = dimension; Matrix::cop = crossover;
     }
@@ -53,29 +55,36 @@ struct Matrix {
            printf("The return value: %d\n", result);
            return std::pair<int*, int*>(NULL, NULL);
        }
-    // split buffer chars into matrices of integers
-    int size = Matrix::n * Matrix::n;
-    int* A = new int[size]; int* B = new int[size];
+        // split buffer chars into matrices of integers
+        int size = Matrix::n * Matrix::n;
+        int* A = new int[size]; int* B = new int[size];
 
-    int buf_counter = 0; // tracking postion in the buffer
-    for (int r = 0; r < 2*Matrix::n; r++){
-        for (int c = r*Matrix::n; c < (r+1)*Matrix::n; c++){
-            if (buf_counter < total_size/2){ // check if we are at end of first matrix
-                A[c] = strtol(&elbuf[buf_counter], NULL, 10);
-            } else {
-                B[c - size] = strtol(&elbuf[buf_counter], NULL, 10);
+        int buf_counter = 0; // tracking postion in the buffer
+        for (int r = 0; r < 2*Matrix::n; r++){
+            for (int c = r*Matrix::n; c < (r+1)*Matrix::n; c++){
+                if (buf_counter < total_size/2){ // check if we are at end of first matrix
+                    A[c] = strtol(&elbuf[buf_counter], NULL, 10);
+                } else {
+                    B[c - size] = strtol(&elbuf[buf_counter], NULL, 10);
+                }
+                buf_counter = buf_counter + 2;
             }
-            buf_counter = buf_counter + 2;
         }
-    }
 
-    Matrix::A = A; Matrix::B = B; Matrix::C = new int[size];
-    // initialize C matrix to zeros
-    for (int i = 0; i < size; i++){
-        Matrix:C[i] = 0;
+        Matrix::A = A; Matrix::B = B;
+        if (n % 2 != 0){
+            Matrix::C = new int[(Matrix::n + 1) * (Matrix::n + 1)];
+            Matrix::scratch_pad = new int[((size+1)/2) * ((size+1)/2)];
+        } else {
+            Matrix::C = new int[size];
+            Matrix::scratch_pad = new int[(size/2) * (size/2)];
+        }
+        // initialize C matrix to zeros
+        for (int i = 0; i < size; i++){
+            Matrix::C[i] = 0;
+        }
+        return std::pair<int*, int*>(A, B);
     }
-    return std::pair<int*, int*>(A, B);
-   }
 
     /* 
         stand_mult
@@ -88,62 +97,94 @@ struct Matrix {
             and upper-left corner of sub-matrix of B
         works because these matrice are equal squares
     */
-   int* standard_mult(int dim, bool pad, int* A, int* B, std::pair<int, int> acoord, 
+    int* standard_mult(int dim, bool pad, int* A, int* B, std::pair<int, int> acoord, 
                         std::pair<int, int> bcoord,
                         std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
        // multiply each column in B by every row in A
        // trying to optimize because caches dredge up entire row
        //Matrix::C = new int[dim*dim]; // OPT Q: can I avoid making a ton of these new matrices??
+       
+       // FIXME!! needs to be i, k, j
+
+       if (pad){
+           dim = dim-1;
+       }
+       
        for (int j = 0; j < dim; j++){ // column in B
             for (int i = 0; i < dim; i++){ // row of A
                // reset C's column element sum to zero
                int partial_sum = 0;
                for (int k = 0; k < dim; k++){ // element of column in B, element of row of A
-                  // handle padding here! "pretend" matrix has padding
-                  if (pad && (k == dim-1 || i == dim-1 || k == dim-1)){
-                      // do nothing to partial_sum, because we assume padding is zero
-                  } else { // no padding case
-                    partial_sum = partial_sum + A[(i+acoord.first)*dim + (k + acoord.second)]
+                partial_sum += A[(i+acoord.first)*dim + (k + acoord.second)]
                         * B[(k + bcoord.first)*dim + (j + bcoord.second)];
-                  }
                }
                // fill in element of C's column
                // and all relevant blotches of C
                for (auto ccoord_wrap : ccoord_vec){
-                   auto ccoord = ccoord_wrap.second;
-                   if (ccoord_wrap.first == -1) {
-                        Matrix::C[(i + ccoord.first)*dim + 
-                        (j + ccoord.second)] -= partial_sum;
-                   } else {
-                        Matrix::C[(i + ccoord.first)*dim + 
-                        (j + ccoord.second)] += partial_sum;
-                   }
-
+                    auto ccoord = ccoord_wrap.second;
+                    if (pad){
+                        if (ccoord_wrap.first == -1) {
+                            Matrix::C[(i + ccoord.first)*(dim+1) + 
+                            (j + ccoord.second)] -= partial_sum;
+                        } else {
+                            // printf("index %d: existing value, %d, partial sum to add it %d\n", (i + ccoord.first)*(dim + 1) + 
+                            // (j + ccoord.second), Matrix::C[(i + ccoord.first)*(dim + 1) + 
+                            // (j + ccoord.second)], partial_sum);
+                            Matrix::C[(i + ccoord.first)*(dim + 1) + 
+                            (j + ccoord.second)] += partial_sum;
+                        }
+                    } else {
+                        if (ccoord_wrap.first == -1) {
+                            Matrix::C[(i + ccoord.first)*dim + 
+                            (j + ccoord.second)] -= partial_sum;
+                        } else {
+                            Matrix::C[(i + ccoord.first)*dim + 
+                            (j + ccoord.second)] += partial_sum;
+                        }
+                    }
                }
            }
        }
 
        return Matrix::C;
-   }
+    }
 
    /*
-    Subtract or add two submatrices of a larger matrix.
-    Return pointer to resulting matrix.
+        Subtract or add two submatrices of a larger matrix.
+        Takes dimension of the larger matrix, assumes smaller
+        matrix dimensions will always be half of that dimension.
+        Assume that the dim passed is always an even number/
+        Return pointer to resulting matrix.
    */
-    int* subtract(int dim, int sign, int* A, int* B, std::pair<int,int> acoord, std::pair<int,int> bcoord){
-        int* res = new int[dim*dim];
-        for (int r = 0; r < dim; r++){
-            for (int c = r*dim; c < (r+1)*dim; c++){
-                if (sign < 0){
-                    res[c] = Matrix::A[(r+acoord.first)*dim + (c+acoord.second)]
-                        - Matrix::B[(r+bcoord.first)*dim + (c+bcoord.second)];
+    int* subtract(int dim, bool pad, int sign, int* A, int* B, 
+        std::pair<int,int> acoord, std::pair<int,int> bcoord){
+        int subdim = dim/2; // dimension of the submatrix
+        if (pad){
+            dim = dim - 1;
+        }
+        int coeff = 1;
+        if (sign < 0){
+            coeff = -1;
+        }
+        int subA;
+        int subB;
+        for (int r = 0; r < subdim; r++){
+            for (int c = 0; c < subdim; c++){ // Q: confirm this loop!
+                if (pad && acoord.second + c > dim - 1) {
+                    subA = 0;
                 } else {
-                    res[c] = Matrix::A[(r+acoord.first)*dim + (c+acoord.second)]
-                        + Matrix::B[(r+bcoord.first)*dim + (c+bcoord.second)];
-                } 
+                    subA = A[(r+acoord.first)*dim + (c+acoord.second)];
+                }
+                if (pad && bcoord.second + c > dim - 1){
+                    subB = 0;
+                } else {
+                    subB = B[(r+bcoord.first)*dim + (c+bcoord.second)];
+                }
+                Matrix::scratch_pad[r*subdim + c] = subA + coeff * subB;
+                //res[r*subdim + c] = subA + coeff * subB;
             }
         }
-        return res;
+        return Matrix::scratch_pad;
     }
 
     /*
@@ -161,13 +202,7 @@ struct Matrix {
    int* strassens_w_crossover(int dim, bool pad, int* Aptr, int* Bptr, std::pair<int,int> acoord, 
                                 std::pair<int,int> bcoord,
                                 std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
-        // messy base case
-        // if (dim == 2){ // just dealing with a real number in each quadrant here
-        //     Matrix::C[acoord.first*dim + bcoord.second] = Matrix::A[acoord.]
-        //     Matrix::C[acoord.first*dim + bcoord.second + 1] = 
-        //     Matrix::C[(acoord.first + 1)*dim + bcoord.second] = 
-        //     Matrix::C[(acoord.first + 1)*dim + bcoord.second + 1] = 
-        // }
+        // FIXME: maybe base case should be dim == 1
         if (dim == 2 || dim <= Matrix::cop){ // invoke normal multiplication, this is "base case"
             return Matrix::standard_mult(dim, pad, Aptr, Bptr, acoord, bcoord, ccoord_vec);
         } else {
@@ -190,24 +225,38 @@ struct Matrix {
             std::pair<int,int> G = std::pair<int,int>(bcoord.first + dim/2, bcoord.second);
             std::pair<int,int> H = std::pair<int,int>(bcoord.first + dim/2, bcoord.second + dim/2);
             
+            // OPT idea: create matrix here, need really (overshoot eh) log(n) or log(n+1)
+
             std::pair<int,int> wholeMat = std::pair<int,int>(0,0);
             // delete all unnecessary storage matrices that are additive compounds of A/B
             // p1
-            auto f_min_h = Matrix::subtract(dim, -1, Aptr, Bptr, F, H);
+            auto f_min_h = Matrix::subtract(dim, pad, -1, Bptr, Bptr, F, H);
             std::vector<std::pair<int, std::pair<int,int>>> p1_coords;
             p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, B)); // confirm
             p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
-            strassens_w_crossover(dim, pad, Aptr, f_min_h, A, wholeMat, p1_coords);
-            delete[] f_min_h;
+            strassens_w_crossover(dim/2, pad, Aptr, Matrix::scratch_pad, A, wholeMat, p1_coords);
+            delete[] f_min_h; // OPT: can we immediately re-purpose the matrix here?
             // p2
-            auto a_plus_b = Matrix::subtract(dim, 1, Aptr, Bptr, A, B);
+            auto a_plus_b = Matrix::subtract(dim, pad, 1, Aptr, Aptr, A, B);
             std::vector<std::pair<int, std::pair<int,int>>> p2_coords;
             p2_coords.push_back(std::pair<int, std::pair<int,int>>(-1, A)); // confirm
             p2_coords.push_back(std::pair<int, std::pair<int,int>>(1, B));
-            strassens_w_crossover(dim, pad, a_plus_b, Bptr, wholeMat, H, p2_coords);
+            strassens_w_crossover(dim/2, pad, a_plus_b, Bptr, wholeMat, H, p2_coords);
             delete[] a_plus_b;
             // p3
+            auto c_plus_d = Matrix::subtract(dim, pad, 1, Aptr, Aptr, C, D);
+            std::vector<std::pair<int, std::pair<int,int>>> p3_coords;
+            p3_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
+            p3_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
+            strassens_w_crossover(dim/2, pad, c_plus_d, Bptr, wholeMat, E, p3_coords);
+            delete[] c_plus_d; 
             // p4
+            // auto c_plus_d = Matrix::subtract(dim, 1, Aptr, Aptr, C, D);
+            // std::vector<std::pair<int, std::pair<int,int>>> p3_coords;
+            // p3_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
+            // p3_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
+            // strassens_w_crossover(dim/2, pad, c_plus_d, Bptr, wholeMat, E, p3_coords);
+            // delete[] c_plus_d; 
             // p5
             // p6
             // p7
