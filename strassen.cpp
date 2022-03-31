@@ -99,7 +99,7 @@ struct Matrix {
             and upper-left corner of sub-matrix of B
         works because these matrice are equal squares
     */
-    int* standard_mult(int dim, bool pad, int* A, int* B, std::pair<int, int> acoord, 
+    int* standard_mult(int dim, bool pad, int* A, int* B, int* C, std::pair<int, int> acoord, 
                         std::pair<int, int> bcoord,
                         std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
        // multiply each column in B by every row in A
@@ -122,18 +122,18 @@ struct Matrix {
                     auto ccoord = ccoord_wrap.second;
                     if (pad){
                         if (ccoord_wrap.first == -1) {
-                            Matrix::C[(i + ccoord.first)*(dim+1) + 
+                            C[(i + ccoord.first)*(dim+1) + 
                             (k + ccoord.second)] -= partial_sum;
                         } else {
-                            Matrix::C[(i + ccoord.first)*(dim + 1) + 
+                            C[(i + ccoord.first)*(dim + 1) + 
                             (k + ccoord.second)] += partial_sum;
                         }
                     } else {
                         if (ccoord_wrap.first == -1) {
-                            Matrix::C[(i + ccoord.first)*dim + 
+                            C[(i + ccoord.first)*dim + 
                             (k + ccoord.second)] -= partial_sum;
                         } else {
-                            Matrix::C[(i + ccoord.first)*dim + 
+                            C[(i + ccoord.first)*dim + 
                             (k + ccoord.second)] += partial_sum;
                         }
                     }
@@ -141,7 +141,7 @@ struct Matrix {
            }
        }
 
-       return Matrix::C;
+       return C;
     }
 
    /*
@@ -151,8 +151,9 @@ struct Matrix {
         Assume that the dim passed is always an even number/
         Return pointer to resulting matrix.
    */
-    int* subtract(int dim, bool pad, int sign, int* A, int* B, 
-        std::pair<int,int> acoord, std::pair<int,int> bcoord){
+    int* subtract(int dim, bool pad, int sign, int* A, int* B, int* C,
+        std::pair<int,int> acoord, std::pair<int,int> bcoord, 
+        std::pair<int,int>ccoord){
         int subdim = dim/2; // dimension of the submatrix
         if (pad){
             dim = dim - 1;
@@ -161,7 +162,7 @@ struct Matrix {
         if (sign < 0){
             coeff = -1;
         }
-        int* ret = new int[subdim*subdim];
+        //int* ret = new int[subdim*subdim];
         int subA;
         int subB;
         for (int r = 0; r < subdim; r++){
@@ -177,11 +178,17 @@ struct Matrix {
                     subB = B[(r+bcoord.first)*dim + (c+bcoord.second)];
                 }
                 //Matrix::scratch_pad[r*subdim + c] = subA + coeff * subB;
-                ret [r*subdim + c] = subA + coeff * subB;
+                C[(r + ccoord.first)*subdim + c + ccoord.second] += subA + coeff * subB;
             }
         }
         //return Matrix::scratch_pad;
-        return ret;
+        return C;
+    }
+
+    void fillZero(int dim, int* matptr){
+        for (int i = 0; i < dim*dim; i++){
+            matptr[i] = 0;
+        }
     }
 
     /*
@@ -195,18 +202,20 @@ struct Matrix {
             - coordinates of upper-left submatrix of A (if 0,0 means entire matrix A)
             - coordinates of upper-left submatrix of B (if 0,0 means entire matrix B)
             - coordinates of where output should be deposited in C (0,0 means blanket entire C)
+        Returns dimension of compute product matrix and pointer to its upper left corner
     */
-   int* strassens_w_crossover(int dim, bool pad, int* Aptr, int* Bptr, std::pair<int,int> acoord, 
+   std::pair<int, int*> strassens_w_crossover(int dim, bool pad, int* Aptr, int* Bptr, std::pair<int,int> acoord, 
                                 std::pair<int,int> bcoord,
                                 std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
         // FIXME: maybe base case should be dim == 1
-        // if (dim == 2){
-        //     int* ret = new int[1];
-        //     ret[0] = 
-        // }
         if (dim == 2 || dim <= Matrix::cop){ // invoke normal multiplication, this is "base case"
-            return Matrix::standard_mult(dim, pad, Aptr, Bptr, acoord, bcoord, ccoord_vec);
+            int* Cptr = new int[dim*dim];
+            fillZero(dim, Cptr);
+            int* res_ptr = Matrix::standard_mult(dim, pad, Aptr, Bptr, Cptr, acoord, bcoord, 
+                ccoord_vec);
+            return std::pair<int, int*>(dim, res_ptr);
         } else {
+            printf("not in base case\n");
             if (dim % 2 != 0){
                 // need to add padding
                 dim++;
@@ -227,72 +236,122 @@ struct Matrix {
             std::pair<int,int> H = std::pair<int,int>(bcoord.first + dim/2, bcoord.second + dim/2);
             
             // OPT idea: create matrix here, need really (overshoot eh) log(n) or log(n+1)
-
             std::pair<int,int> wholeMat = std::pair<int,int>(0,0);
+            int quadarea = (dim/2)*(dim/2);
+            printf("computed quad area\n");
+
+            int* Cptr = new int[dim*dim];
+            printf("allocated Cptr\n");
+            fillZero(dim, Cptr);
+            printf("filled Cptr with zeros\n");
             // delete all unnecessary storage matrices that are additive compounds of A/B
             // p1
-            auto f_min_h = Matrix::subtract(dim, pad, -1, Bptr, Bptr, F, H);
+            int* f_min_h = new int[quadarea];
+            fillZero(dim, f_min_h);
+            printf("allocated subtraction matrix\n");
+            Matrix::subtract(dim, pad, -1, Bptr, Bptr, f_min_h, F, H, wholeMat);
+            printf("subtracted f_min_h\n");
             std::vector<std::pair<int, std::pair<int,int>>> p1_coords;
             // for-loop to push back all 
-            p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, B)); // confirm
-            p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
-            strassens_w_crossover(dim/2, pad, Aptr, f_min_h, A, wholeMat, p1_coords);
-            delete[] f_min_h; // OPT: can we immediately re-purpose the matrix here?
+            //p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, B)); // confirm
+            //p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
+            printf("pushed everything back\n");
+            auto p1 = strassens_w_crossover(dim/2, pad, Aptr, f_min_h, A, wholeMat, p1_coords);
+            //delete[] f_min_h; // OPT: can we immediately re-purpose the matrix here?
+            printf("finished recursive call\n");
+
             // p2
-            auto a_plus_b = Matrix::subtract(dim, pad, 1, Aptr, Aptr, A, B);
+            int* a_plus_b = new int[quadarea];
+            fillZero(dim, a_plus_b);
+            Matrix::subtract(dim, pad, 1, Aptr, Aptr, a_plus_b, A, B, wholeMat);
             std::vector<std::pair<int, std::pair<int,int>>> p2_coords;
             p2_coords.push_back(std::pair<int, std::pair<int,int>>(-1, A)); // confirm
             p2_coords.push_back(std::pair<int, std::pair<int,int>>(1, B));
-            strassens_w_crossover(dim/2, pad, a_plus_b, Bptr, wholeMat, H, p2_coords);
-            delete[] a_plus_b;
+            auto p2 = strassens_w_crossover(dim/2, pad, a_plus_b, Bptr, wholeMat, H, p2_coords);
+            //delete[] a_plus_b;
             // p3
-            auto c_plus_d = Matrix::subtract(dim, pad, 1, Aptr, Aptr, C, D);
+            int* c_plus_d = new int[quadarea];
+            fillZero(dim, c_plus_d);
+            Matrix::subtract(dim, pad, 1, Aptr, Aptr, c_plus_d, C, D, wholeMat);
             std::vector<std::pair<int, std::pair<int,int>>> p3_coords;
             p3_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
             p3_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
-            strassens_w_crossover(dim/2, pad, c_plus_d, Bptr, wholeMat, E, p3_coords);
-            delete[] c_plus_d; 
+            auto p3 = strassens_w_crossover(dim/2, pad, c_plus_d, Bptr, wholeMat, E, p3_coords);
+            //delete[] c_plus_d; 
             // p4
-            auto g_min_e = Matrix::subtract(dim, pad, -1, Bptr, Bptr, G, E);
+            int* g_min_e = new int[quadarea];
+            fillZero(dim, g_min_e);
+            Matrix::subtract(dim, pad, -1, Bptr, Bptr, g_min_e, G, E, wholeMat);
             std::vector<std::pair<int, std::pair<int,int>>> p4_coords;
             p4_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
             p4_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
-            strassens_w_crossover(dim/2, pad, g_min_e, Bptr, wholeMat, E, p4_coords);
-            delete[] g_min_e; 
+            auto p4 = strassens_w_crossover(dim/2, pad, g_min_e, Bptr, wholeMat, E, p4_coords);
+            //delete[] g_min_e; 
             // p5
-            auto a_plus_d = Matrix::subtract(dim, pad, 1, Aptr, Aptr, A, D);
-            auto e_plus_h = Matrix::subtract(dim, pad, 1, Bptr, Bptr, E, H);
+            int* a_plus_d = new int[quadarea];
+            fillZero(dim, a_plus_d);
+            int* e_plus_h = new int[quadarea];
+            fillZero(dim, e_plus_h);
+            Matrix::subtract(dim, pad, 1, Aptr, Aptr, a_plus_d, A, D, wholeMat);
+            Matrix::subtract(dim, pad, 1, Bptr, Bptr, e_plus_h, E, H, wholeMat);
             std::vector<std::pair<int, std::pair<int,int>>> p5_coords;
             p5_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
             p5_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
-            strassens_w_crossover(dim/2, pad, a_plus_d, e_plus_h, wholeMat, wholeMat, p5_coords);
-            delete[] a_plus_d;
-            delete[] e_plus_h; 
+            auto p5 = strassens_w_crossover(dim/2, pad, a_plus_d, e_plus_h, wholeMat, wholeMat, p5_coords);
+            //delete[] a_plus_d;
+            //delete[] e_plus_h; 
             // p6
-            auto b_min_d = Matrix::subtract(dim, pad, -1, Aptr, Aptr, B, D);
-            auto g_plus_h = Matrix::subtract(dim, pad, 1, Bptr, Bptr, G, H);
+            int* b_min_d = new int[quadarea];
+            fillZero(dim, b_min_d);
+            int* g_plus_h = new int[quadarea];
+            fillZero(dim, g_plus_h);
+            Matrix::subtract(dim, pad, -1, Aptr, Aptr, b_min_d, B, D, wholeMat);
+            Matrix::subtract(dim, pad, 1, Bptr, Bptr, g_plus_h, G, H, wholeMat);
             std::vector<std::pair<int, std::pair<int,int>>> p6_coords;
             p6_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
             p6_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
-            strassens_w_crossover(dim/2, pad, b_min_d, g_plus_h, wholeMat, wholeMat, p6_coords);
-            delete[] b_min_d;
-            delete[] e_plus_h; 
+            auto p6 = strassens_w_crossover(dim/2, pad, b_min_d, g_plus_h, wholeMat, wholeMat, p6_coords);
+            //delete[] b_min_d;
+            //delete[] e_plus_h; 
             // p7
-            auto c_min_a = Matrix::subtract(dim, pad, -1, Aptr, Aptr, C, A);
-            auto e_plus_f = Matrix::subtract(dim, pad, 1, Bptr, Bptr, E, F);
+            int* c_min_a = new int[quadarea];
+            fillZero(dim, c_min_a);
+            int* e_plus_f = new int[quadarea];
+            fillZero(dim, e_plus_f);
+            //printf("e_plus_f allocated\n");
+            Matrix::subtract(dim, pad, -1, Aptr, Aptr, c_min_a, C, A, wholeMat);
+            Matrix::subtract(dim, pad, 1, Bptr, Bptr, e_plus_f, E, F, wholeMat);
             std::vector<std::pair<int, std::pair<int,int>>> p7_coords;
             p7_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
             p7_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
             // put this into specific region of C matrix
-            strassens_w_crossover(dim/2, pad, c_min_a, e_plus_f, wholeMat, wholeMat, p7_coords);
-            delete[] c_min_a;
-            delete[] e_plus_f; 
+            auto p7 = strassens_w_crossover(dim/2, pad, c_min_a, e_plus_f, wholeMat, wholeMat, p7_coords);
+            //delete[] c_min_a;
+            //delete[] e_plus_f; 
             // invoke recursive step
 
-            // FIX THE COORDINATES!
-        }
+            //int* q1 = new int[quadarea];
+            std::pair<int,int> q1 = std::pair<int,int> (0,0);
+            //int* q2 = new int[quadarea];
+            std::pair<int,int> q2 = std::pair<int,int> (0, p1.first);
+            //int* q3 = new int[quadarea];
+            std::pair<int,int> q3 = std::pair<int,int> (p1.first, 0);
+            //int* q4 = new int[quadarea];
+            std::pair<int,int> q4 = std::pair<int,int> (p1.first, p1.first);
 
-        return Matrix::C;
+            // first quadrant
+            Matrix::subtract(p1.first, pad, -1, p4.second, p2.second, Cptr, wholeMat, wholeMat, q1);
+            Matrix::subtract(p1.first, pad, 1, p5.second, p6.second, Cptr, wholeMat, wholeMat, q1);
+            // second quadrant
+            Matrix::subtract(p1.first, pad, 1, p1.second, p2.second, Cptr, wholeMat, wholeMat, q2);
+            // third quadrant
+            Matrix::subtract(p1.first, pad, 1, p3.second, p4.second, Cptr, wholeMat, wholeMat, q3);
+            // fourth quadrant
+            Matrix::subtract(p1.first, pad, -1, p1.second, p3.second, Cptr, wholeMat, wholeMat, q4);
+            Matrix::subtract(p1.first, pad, 1, p5.second, p7.second, Cptr, wholeMat, wholeMat, q4);
+            // NOTE: need to account for padding down here too!!
+            return std::pair<int, int*> (dim, Cptr);
+        }
    }
 };
 
@@ -302,6 +361,33 @@ struct Matrix {
         crossover, dimension, inputfile
     prints output in the specified format
 */
-// int main(int argc, char* argv[]){
-//     return 0;
+// void main(int argc, char* argv[]){
+//     char* cross_s = argv[1];
+//     int crossover = strtol(cross_s, &cross_s, 10);
+//     char* dim_s = argv[2];
+//     int dimension = strtol(dim_s, &dim_s, 10);
+//     char* inputfile = argv[2];
+
+//     Matrix m(dimension, crossover);
+//     m.read_input(inputfile);
+
+//     auto begincoord = std::pair<int,int>(0,0);
+//     std::vector<std::pair<int, std::pair<int, int>>> beginccoord;
+//     beginccoord.push_back(std::pair<int, std::pair<int,int>>(1, std::pair<int,int>(0,0)));
+//     auto finalret = m.strassens_w_crossover(dimension, false, m.A, m.B, 
+//         begincoord, begincoord,
+//         beginccoord);
+//     for (int i = 0; i < dimension; i++){
+//         for (int j = 0; j < dimension; j++){
+//             if (i == j){
+//                 printf("%d\n", finalret.second[i*dimension + j]);
+//             }
+//         }
+//     }
 // };
+
+
+// PROBLEM HERE IS THAT I WAS CORRUPTING MEMEORY
+// TRY FOR TESTING 7 DISTINCT CROSSOVER VALUES
+// MOVING TO PYTHON NOW
+

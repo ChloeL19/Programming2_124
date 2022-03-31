@@ -42,7 +42,47 @@ void printSubMatrix(int dim, bool pad, int* ptr, std::pair<int,int>coord) {
 }
 
 int main(){
-    // Test reading from input file
+    std::vector<std::pair<int, std::pair<int, int>>> ccoord;
+    ccoord.push_back(std::pair<int, std::pair<int,int>>(1, std::pair<int,int>(0,0)));
+    // test timing of large regular matrix multiplication
+    printf("Big matrix result for strassen:--------------------\n");
+    Matrix M4(22, 1);
+    auto res4 = M4.read_input("input1big.txt");
+    // strassen computation now
+    auto start1 = high_resolution_clock::now();
+    auto C1 = M4.strassens_w_crossover(M4.n, false, M4.A, M4.B, 
+        std::pair<int,int>(0,0), std::pair<int,int>(0,0), ccoord);
+    auto stop1 = high_resolution_clock::now();
+    // strassens version printed
+    for (int i = 0; i < M4.n; i++){
+        for (int j = 0; j < M4.n; j++){
+            if (i == j){
+                printf("%d\n", C1.second[(i*M4.n) + j]);
+            }
+        }
+    }
+    auto duration1 = duration_cast<seconds>(stop1 - start1);
+    printf("Total mult time in seconds: %ld\n", duration1.count());
+    // normal version computation now
+    printf("Big matrix result for normal:--------------------\n");
+    auto start = high_resolution_clock::now();
+    int* C2 = M4.standard_mult(M4.n, false, M4.A, M4.B, M4.C, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
+            ccoord);
+    auto stop = high_resolution_clock::now();
+    for (int r = 0; r < M4.n; r++){
+        for (int c = r*M4.n; c < (r+1)*M4.n; c++){
+            printf("%d\t", C2[c]);
+        }
+        printf("\n");
+    }
+    auto duration = duration_cast<seconds>(stop - start);
+    printf("Total mult time in seconds: %ld\n", duration.count());
+
+    // normal version printed
+    
+    
+    
+    /*// Test reading from input file
     printf("Small input test--------------------\n");
     Matrix M1(3, 1);
     auto res1 = M1.read_input("input1small.txt");
@@ -72,7 +112,7 @@ int main(){
     auto res3 = M3.read_input("input1tiny.txt");
     std::vector<std::pair<int, std::pair<int,int>>> ccoord;
     ccoord.push_back(std::pair<int, std::pair<int,int>>(1,std::pair<int,int>(0,0)));
-    int* C = M3.standard_mult(M3.n, false, M3.A, M3.B, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
+    int* C = M3.standard_mult(M3.n, false, M3.A, M3.B, M3.C, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
             ccoord);
     for (int r = 0; r < M3.n; r++){
         for (int c = r*M3.n; c < (r+1)*M3.n; c++){
@@ -83,7 +123,7 @@ int main(){
     printf("Medium matrix result:--------------------\n");
     Matrix M5(3, 1);
     auto res5 = M5.read_input("input1small.txt");
-    int* C3 = M5.standard_mult(M5.n, false, M5.A, M5.B, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
+    int* C3 = M5.standard_mult(M5.n, false, M5.A, M5.B, M5.C, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
             ccoord);
     for (int r = 0; r < M5.n; r++){
         for (int c = r*M5.n; c < (r+1)*M5.n; c++){
@@ -97,7 +137,7 @@ int main(){
     Matrix M4(22, 1);
     auto res4 = M4.read_input("input1big.txt");
     auto start = high_resolution_clock::now();
-    int* C2 = M4.standard_mult(M4.n, false, M4.A, M4.B, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
+    int* C2 = M4.standard_mult(M4.n, false, M4.A, M4.B, M4.C, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
             ccoord);
     auto stop = high_resolution_clock::now();
     for (int r = 0; r < M4.n; r++){
@@ -122,7 +162,7 @@ int main(){
     printMatrix(M6.n, M6.B);
     // we will always increment dimension to make it divisible by 2 if it is odd
     M6.n = 4;
-    int* C4 = M6.standard_mult(M6.n, true, M6.A, M6.B, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
+    int* C4 = M6.standard_mult(M6.n, true, M6.A, M6.B, M6.C, std::pair<int,int>(0,0), std::pair<int,int>(0,0),
         ccoord);
     printf("Multiplication with padding result---------------\n");
     for (int r = 0; r < M6.n; r++){
@@ -170,6 +210,6 @@ int main(){
     printf("Printing matrix H------------------------------\n");
     printSubMatrix(M4.n, false, M4.B, H2);
     printf("Printing Matrix of Subtractions-------------------------------\n");
-    printMatrix(M4.n/2, f_min_h2);
+    printMatrix(M4.n/2, f_min_h2);*/
 };
 
