@@ -74,6 +74,8 @@ struct Matrix {
         Matrix::A = A; Matrix::B = B;
         if (n % 2 != 0){
             Matrix::C = new int[(Matrix::n + 1) * (Matrix::n + 1)];
+            // 10 quad sums per round of recursion
+            // there will be 
             Matrix::scratch_pad = new int[((size+1)/2) * ((size+1)/2)];
         } else {
             Matrix::C = new int[size];
@@ -159,6 +161,7 @@ struct Matrix {
         if (sign < 0){
             coeff = -1;
         }
+        int* ret = new int[subdim*subdim];
         int subA;
         int subB;
         for (int r = 0; r < subdim; r++){
@@ -173,10 +176,12 @@ struct Matrix {
                 } else {
                     subB = B[(r+bcoord.first)*dim + (c+bcoord.second)];
                 }
-                Matrix::scratch_pad[r*subdim + c] = subA + coeff * subB;
+                //Matrix::scratch_pad[r*subdim + c] = subA + coeff * subB;
+                ret [r*subdim + c] = subA + coeff * subB;
             }
         }
-        return Matrix::scratch_pad;
+        //return Matrix::scratch_pad;
+        return ret;
     }
 
     /*
@@ -195,6 +200,10 @@ struct Matrix {
                                 std::pair<int,int> bcoord,
                                 std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
         // FIXME: maybe base case should be dim == 1
+        // if (dim == 2){
+        //     int* ret = new int[1];
+        //     ret[0] = 
+        // }
         if (dim == 2 || dim <= Matrix::cop){ // invoke normal multiplication, this is "base case"
             return Matrix::standard_mult(dim, pad, Aptr, Bptr, acoord, bcoord, ccoord_vec);
         } else {
@@ -224,9 +233,10 @@ struct Matrix {
             // p1
             auto f_min_h = Matrix::subtract(dim, pad, -1, Bptr, Bptr, F, H);
             std::vector<std::pair<int, std::pair<int,int>>> p1_coords;
+            // for-loop to push back all 
             p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, B)); // confirm
             p1_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
-            strassens_w_crossover(dim/2, pad, Aptr, Matrix::scratch_pad, A, wholeMat, p1_coords);
+            strassens_w_crossover(dim/2, pad, Aptr, f_min_h, A, wholeMat, p1_coords);
             delete[] f_min_h; // OPT: can we immediately re-purpose the matrix here?
             // p2
             auto a_plus_b = Matrix::subtract(dim, pad, 1, Aptr, Aptr, A, B);
@@ -243,16 +253,43 @@ struct Matrix {
             strassens_w_crossover(dim/2, pad, c_plus_d, Bptr, wholeMat, E, p3_coords);
             delete[] c_plus_d; 
             // p4
-            // auto c_plus_d = Matrix::subtract(dim, 1, Aptr, Aptr, C, D);
-            // std::vector<std::pair<int, std::pair<int,int>>> p3_coords;
-            // p3_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
-            // p3_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
-            // strassens_w_crossover(dim/2, pad, c_plus_d, Bptr, wholeMat, E, p3_coords);
-            // delete[] c_plus_d; 
+            auto g_min_e = Matrix::subtract(dim, pad, -1, Bptr, Bptr, G, E);
+            std::vector<std::pair<int, std::pair<int,int>>> p4_coords;
+            p4_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
+            p4_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
+            strassens_w_crossover(dim/2, pad, g_min_e, Bptr, wholeMat, E, p4_coords);
+            delete[] g_min_e; 
             // p5
+            auto a_plus_d = Matrix::subtract(dim, pad, 1, Aptr, Aptr, A, D);
+            auto e_plus_h = Matrix::subtract(dim, pad, 1, Bptr, Bptr, E, H);
+            std::vector<std::pair<int, std::pair<int,int>>> p5_coords;
+            p5_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
+            p5_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
+            strassens_w_crossover(dim/2, pad, a_plus_d, e_plus_h, wholeMat, wholeMat, p5_coords);
+            delete[] a_plus_d;
+            delete[] e_plus_h; 
             // p6
+            auto b_min_d = Matrix::subtract(dim, pad, -1, Aptr, Aptr, B, D);
+            auto g_plus_h = Matrix::subtract(dim, pad, 1, Bptr, Bptr, G, H);
+            std::vector<std::pair<int, std::pair<int,int>>> p6_coords;
+            p6_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
+            p6_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
+            strassens_w_crossover(dim/2, pad, b_min_d, g_plus_h, wholeMat, wholeMat, p6_coords);
+            delete[] b_min_d;
+            delete[] e_plus_h; 
             // p7
+            auto c_min_a = Matrix::subtract(dim, pad, -1, Aptr, Aptr, C, A);
+            auto e_plus_f = Matrix::subtract(dim, pad, 1, Bptr, Bptr, E, F);
+            std::vector<std::pair<int, std::pair<int,int>>> p7_coords;
+            p7_coords.push_back(std::pair<int, std::pair<int,int>>(-1, C)); // confirm
+            p7_coords.push_back(std::pair<int, std::pair<int,int>>(1, D));
+            // put this into specific region of C matrix
+            strassens_w_crossover(dim/2, pad, c_min_a, e_plus_f, wholeMat, wholeMat, p7_coords);
+            delete[] c_min_a;
+            delete[] e_plus_f; 
             // invoke recursive step
+
+            // FIX THE COORDINATES!
         }
 
         return Matrix::C;
