@@ -101,20 +101,16 @@ struct Matrix {
                         std::pair<int, int> bcoord,
                         std::vector<std::pair<int, std::pair<int, int>>> ccoord_vec){
        // multiply each column in B by every row in A
-       // trying to optimize because caches dredge up entire row
-       //Matrix::C = new int[dim*dim]; // OPT Q: can I avoid making a ton of these new matrices??
-       
-       // FIXME!! needs to be i, k, j
-
+       // trying to optimize because caches dredge up entire row   
        if (pad){
            dim = dim-1;
        }
        
-       for (int j = 0; j < dim; j++){ // column in B
-            for (int i = 0; i < dim; i++){ // row of A
+       for (int i = 0; i < dim; i++){  // row of A
+            for (int k = 0; k < dim; k++){ // element of column in B, element of row of A
                // reset C's column element sum to zero
                int partial_sum = 0;
-               for (int k = 0; k < dim; k++){ // element of column in B, element of row of A
+               for (int j = 0; j < dim; j++){  // column in B
                 partial_sum += A[(i+acoord.first)*dim + (k + acoord.second)]
                         * B[(k + bcoord.first)*dim + (j + bcoord.second)];
                }
@@ -125,21 +121,18 @@ struct Matrix {
                     if (pad){
                         if (ccoord_wrap.first == -1) {
                             Matrix::C[(i + ccoord.first)*(dim+1) + 
-                            (j + ccoord.second)] -= partial_sum;
+                            (k + ccoord.second)] -= partial_sum;
                         } else {
-                            // printf("index %d: existing value, %d, partial sum to add it %d\n", (i + ccoord.first)*(dim + 1) + 
-                            // (j + ccoord.second), Matrix::C[(i + ccoord.first)*(dim + 1) + 
-                            // (j + ccoord.second)], partial_sum);
                             Matrix::C[(i + ccoord.first)*(dim + 1) + 
-                            (j + ccoord.second)] += partial_sum;
+                            (k + ccoord.second)] += partial_sum;
                         }
                     } else {
                         if (ccoord_wrap.first == -1) {
                             Matrix::C[(i + ccoord.first)*dim + 
-                            (j + ccoord.second)] -= partial_sum;
+                            (k + ccoord.second)] -= partial_sum;
                         } else {
                             Matrix::C[(i + ccoord.first)*dim + 
-                            (j + ccoord.second)] += partial_sum;
+                            (k + ccoord.second)] += partial_sum;
                         }
                     }
                }
@@ -181,7 +174,6 @@ struct Matrix {
                     subB = B[(r+bcoord.first)*dim + (c+bcoord.second)];
                 }
                 Matrix::scratch_pad[r*subdim + c] = subA + coeff * subB;
-                //res[r*subdim + c] = subA + coeff * subB;
             }
         }
         return Matrix::scratch_pad;
